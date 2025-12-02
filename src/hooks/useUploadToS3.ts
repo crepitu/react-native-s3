@@ -69,7 +69,8 @@ export const useUploadToS3 = (): UseUploadToS3Result => {
               fileName,
               subfolder,
               contentType,
-            }
+            },
+            config.httpClient
           );
           signedUrl = response.signedUrl;
         }
@@ -83,7 +84,8 @@ export const useUploadToS3 = (): UseUploadToS3Result => {
           (uploadProgress) => {
             setProgress(uploadProgress);
             onProgress?.(uploadProgress);
-          }
+          },
+          config.httpClient
         );
 
         if (!result.success) {

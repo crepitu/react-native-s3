@@ -1,4 +1,48 @@
-import type { PresignedUrlResponse, UploadResult } from '../types';
+import type {
+  PresignedUrlResponse,
+  UploadResult,
+  HttpClient,
+  HttpRequestConfig,
+  HttpResponse,
+} from '../types';
+
+/**
+ * Default HTTP client using fetch API
+ */
+const defaultHttpClient: HttpClient = {
+  request: async <T = any>(
+    config: HttpRequestConfig
+  ): Promise<HttpResponse<T>> => {
+    const response = await fetch(config.url, {
+      method: config.method,
+      headers: config.headers,
+      body: config.body,
+    });
+
+    let data: any;
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        `Request failed with status ${response.status}: ${response.statusText}`
+      );
+      (error as any).status = response.status;
+      (error as any).response = { data, status: response.status };
+      throw error;
+    }
+
+    return {
+      data,
+      status: response.status,
+      statusText: response.statusText,
+    };
+  },
+};
 
 /**
  * Fetch presigned URL from the backend
@@ -11,7 +55,8 @@ export async function fetchPresignedUrl(
     fileName: string;
     subfolder: string;
     contentType?: string;
-  }
+  },
+  httpClient?: HttpClient
 ): Promise<PresignedUrlResponse> {
   const queryParams = new URLSearchParams({
     bucket: params.bucket,
@@ -21,19 +66,17 @@ export async function fetchPresignedUrl(
     contentType: params.contentType || 'application/octet-stream',
   });
 
-  const response = await fetch(`${endpoint}?${queryParams.toString()}`, {
+  const client = httpClient || defaultHttpClient;
+
+  const response = await client.request<PresignedUrlResponse>({
+    url: `${endpoint}?${queryParams.toString()}`,
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch presigned URL: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data as PresignedUrlResponse;
+  return response.data;
 }
 
 /**
@@ -50,7 +93,8 @@ export async function uploadToS3(
   fileUri: string,
   fileName: string,
   contentType: string = 'application/octet-stream',
-  _onProgress?: (progress: number) => void
+  _onProgress?: (progress: number) => void,
+  _httpClient?: HttpClient
 ): Promise<UploadResult> {
   try {
     // React Native way: Create a file object for fetch
@@ -61,6 +105,9 @@ export async function uploadToS3(
       name: fileName,
     } as unknown as Blob;
 
+    // For S3 upload, we use fetch directly as custom HTTP clients
+    // may not handle React Native file blobs correctly
+    // The httpClient is mainly for presigned URL fetching
     const response = await fetch(presignedUrl, {
       method: 'PUT',
       headers: {

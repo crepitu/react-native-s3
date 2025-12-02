@@ -8,6 +8,9 @@ export { useDownloadFromS3 } from './hooks/useDownloadFromS3';
 // Export types
 export type {
   S3Config,
+  HttpClient,
+  HttpRequestConfig,
+  HttpResponse,
   GetPresignedUrlParams,
   GetPresignedUrlRequestParams,
   PresignedUrlResponse,

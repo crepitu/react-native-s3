@@ -53,7 +53,8 @@ export const useDownloadFromS3 = (): UseDownloadFromS3Result => {
               fileName,
               subfolder,
               contentType,
-            }
+            },
+            config.httpClient
           );
           signedUrl = response.signedUrl;
         }
